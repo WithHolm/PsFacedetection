@@ -10,35 +10,55 @@ function Unzip
 Properties {
     $Root = $PSScriptRoot
     $Models = Join-Path $Root "Models"
+    $Models_Face = (Join-Path $models "Face")
     $Packages = Join-Path $Root "Packages"
-    $Packages_exported = Join-Path $Root "dll"
 }
 
-Task default -depends nuget,Models
+Task default -depends nuget,Model-Face
 
-Task nuget {
-
+Task nuget -preaction{
     write-output "Clean $Packages"
-    gci $Packages|remove-item -Recurse -Force
-
-    write-output "Clean $Packages_exported"
+    if(test-path $packages)
+    {
+        remove-item $Packages -Recurse -Force #|remove-item -Recurse -Force
+    }
+    write-output "Clean $Packages"
     gci $Packages_exported|remove-item -Recurse -Force
+} -action {
     Write-output "Downloading Packages"
     find-package "FaceRecognitionDotNet"|
         install-package -Destination $Packages|
             Out-Null
-    
-    Write-output "Copying packageDLLs to .\dll"
-    Get-ChildItem $Packagedir -Filter "*.dll" -Recurse|Copy-Item -Destination $Packages_exported -Force
 
-    Write-Output "Remove Packages dir"
-    get-item $Packages|remove-item -Recurse -Force
+    find-package "OpenCVSharp"|
+        install-package -Destination $Packages|
+            Out-Null
+    
+    Write-output "Copying packageDLLs to packageroot"
+    Get-ChildItem $Packagedir -Filter "*.dll" -Recurse|Copy-Item -Destination $Packages -Force
 }
 
-Task Models {
-    Write-Output "Clean $Models"
-    $ZipFile = (Join-Path $Models "Github.zip")
-    $ZipDir = (Join-Path $Models "Github")
+task Models -description "Setup Models"{
+    New-item $models -ItemType Directory -Force
+    Invoke-Task Model-Face
+}
+
+Task Model-Face -description "Import face data" -preaction {
+    if(!(test-path $Models_Face))
+    {
+        Write-Output "Creating model folder .\Face"
+        New-item $Models_Face -ItemType Directory -Force|Out-Null
+    }
+
+    $FaceFiles = gci $Models_Face
+    if($FaceFiles.count -gt 0)
+    {
+        Write-Output "Clean $Models_Face"
+        $FaceFiles|remove-item -Recurse -Force
+    }
+}  -action {
+    $ZipFile = (Join-Path $Models_Face "Github.zip")
+    $ZipDir = (Join-Path $Models_Face "Github")
     $Repo =  "https://api.github.com/repos/ageitgey/face_recognition_models/zipball/new-pose-model"
     Write-Output "Setting TLS 1.2"
     [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
@@ -50,12 +70,13 @@ Task Models {
     unzip $ZipFile -outpath $ZipDir
 
     Write-Output "Copying Models out"
-    get-childitem $ZipDir -Filter "*.dat" -Recurse|copy-item -Destination $Models -Force
-
+    get-childitem $ZipDir -Filter "*.dat" -Recurse|copy-item -Destination $Models_Face -Force
+} -postaction{
     Write-Output "Removing github zip and github folder"
-    remove-item $ZipDir -Recurse -Force
-    remove-item $ZipFile -Force
+    gci $Models_Face -Exclude "*.dat"|remove-item -Recurse -Force
 }
+
+
 # Write-output "Downloading models"
 # # https://github.com/ageitgey/face_recognition_models/tree/new-pose-model
 # $ModelsDir = Join-Path $PSScriptRoot "Models"

@@ -1,50 +1,42 @@
 #Models : https://github.com/ageitgey/face_recognition_models
 
-$VerbosePreference = "Continue"
-add-type -Path ".\DLl\FaceRecognitionDotNet.dll"
-Add-Type -AssemblyName "System.Drawing"
-$Model = [FaceRecognitionDotNet.Model]::Cnn
-$imagepath = [System.IO.FileInfo][System.IO.Path]::GetFullPath(".\test\52565936_10216849131394265_7850975418499727360_n.jpg")
-# $imagepath.BaseName
+ipmo "$PSScriptRoot\psfacedetection.psm1" -Force
+Set-AIProcessingModel -Model Cnn
 
-Write-Verbose "Loading File"
-$Image = [FaceRecognitionDotNet.FaceRecognition]::LoadImageFile($imagepath.FullName,$([FaceRecognitionDotNet.Mode]::Rgb))
-
-Write-Verbose "Loading AI models"
-$recog = [FaceRecognitionDotNet.FaceRecognition]::Create(".\models")
-
-Write-verbose "Discovering Facelocation"
-$FaceLoc = $recog.FaceLocations($Image,0,$Model)|%{@{Bottom=$_.bottom;Left=$_.Left;Right=$_.Right;Top=$_.Top}}
-
-Write-verbose "Done"
-if($FaceLoc.Equals($null))
-{
-    throw "Could not find face in picture"
-}
-# else {
-#     Write-Verbose "Found $($faceloc.count) faces"
+# gci .\test -Exclude "*modding*"|%{
+#     # $imagepath = [System.IO.FileInfo][System.IO.Path]::GetFullPath(".\test\21950023_10155530844506399_1526075956622806938_o.jpg")
+#     Get-Facelocations -Item $_ -Upsamples 0 -Model hog -Verbose|%{
+#         Add-RectangleToPicture -NameModifier "modding" -Locationdata $_ -color Pink -Verbose -RectangleSizePercent 200
+#     }
 # }
 
-Write-verbose "Loading bitmap image"
-$Bitmap = [System.Drawing.Image]::FromFile($imagepath.FullName)
-$G = [System.Drawing.Graphics]::FromImage($Bitmap)
-# $border = [DlibDotNet.Rectangle]::new($FaceLoc.Left,$FaceLoc.Top,$FaceLoc.Right,$FaceLoc.Bottom)
+$File = gci .\test -Exclude "*modding*"|select -first 1
+$recog = Initialize-AIDataset
+$Image = Initialize-AIImage -Item $File -AIMode Greyscale
+$recog.FaceEncodings($image.Fr)|fl * -force
+[]
 
-Write-verbose "Creating pen to draw border"
-$pen = [System.Drawing.Pen]::new([System.Drawing.Color]::Red,$Bitmap.Width/200)
+# Get-Facelocations -Item $File -Upsamples 0 -Model hog -Verbose
+# Write-verbose "Loading bitmap image"
+# $Bitmap = [System.Drawing.Image]::FromFile($imagepath.FullName)
+# $G = [System.Drawing.Graphics]::FromImage($Bitmap)
+# # $border = [DlibDotNet.Rectangle]::new($FaceLoc.Left,$FaceLoc.Top,$FaceLoc.Right,$FaceLoc.Bottom)
 
-Write-Verbose "Processing locations"
-foreach($loc in $FaceLoc)
-{
-    Write-verbose "Creating new border"
-    $border = [DlibDotNet.Rectangle]::new($loc.Left,$loc.Top,$loc.Right,$loc.Bottom)
+# Write-verbose "Creating pen to draw border"
+# $pen = [System.Drawing.Pen]::new([System.Drawing.Color]::Red,$Bitmap.Width/200)
 
-    Write-verbose "Drawing $($pen.Color.Name) border to image"
-    $g.DrawRectangle($pen,$loc.Left,$border.Top,$border.Width,$border.Height)
+# Write-Verbose "Processing locations"
+# foreach($loc in $FaceLoc)
+# {
+#     Write-verbose "Creating new border"
+#     $border = [DlibDotNet.Rectangle]::new($loc.Left,$loc.Top,$loc.Right,$loc.Bottom)
 
-    Write-Verbose "Saving"
-    $Bitmap.Save((join-path $imagepath.Directory.FullName "$($imagepath.BaseName)-mod.jpg"),[System.Drawing.Imaging.ImageFormat]::Jpeg)
-}
+#     Write-verbose "Drawing $($pen.Color.Name) border to image"
+    # $g.DrawRectangle($pen,$loc.Left,$border.Top,$border.Width,$border.Height)
+
+#     Write-Verbose "Saving"
+#     $Bitmap.Save((join-path $imagepath.Directory.FullName "$($imagepath.BaseName)-mod.jpg"),[System.Drawing.Imaging.ImageFormat]::Jpeg)
+# }
 
 # $gw.Clear([System.Drawing.Color]::White)
 # $gw.DrawRectangle($pen,$FaceLoc.Left,$border.Top,$border.Width,$border.Height)
